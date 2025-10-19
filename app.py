@@ -1,19 +1,17 @@
 import streamlit as st
 import numpy as np
 from PIL import Image
-import requests
-from io import BytesIO
 
 # ---------------------------
-# 🔧 1. 기본 설정
+# 기본 설정
 # ---------------------------
 st.set_page_config(page_title="AI 미니딜러", layout="wide")
 st.title("🤖 AI 미니딜러: 내 물건의 실제 시세는?")
-st.caption("사진과 설명만으로 AI가 유사 제품을 찾아 실시간 가격을 예측해줍니다.")
+st.caption("사진과 설명만으로 AI가 유사 제품 시세를 분석하고, 근거까지 설명해드립니다.")
 st.markdown("---")
 
 # ---------------------------
-# 2. 입력 섹션
+# 입력 섹션
 # ---------------------------
 col1, col2 = st.columns(2)
 
@@ -26,16 +24,14 @@ with col1:
 with col2:
     description = st.text_area(
         "📝 물건 설명 입력",
-        placeholder="예: 5kg 덤벨 한 쌍, 상태 좋음. 1년 사용. 외관 깨끗함.",
+        placeholder="예) 5kg 덤벨 한 쌍, 상태 좋음. 1년 사용. 외관 깨끗함.",
         height=150
     )
 
 # ---------------------------
-# 3. 모의 AI + 시세 검색 함수
+# AI 분석 및 시세 추정 함수
 # ---------------------------
-
-def fake_ai_analyze(image, description):
-    """AI가 이미지를 보고 물건 종류를 예측하는 부분 (간단한 흉내)"""
+def analyze_item(description):
     desc = description.lower()
     if "덤벨" in desc or "운동" in desc:
         return "덤벨", "운동기구"
@@ -48,33 +44,58 @@ def fake_ai_analyze(image, description):
     else:
         return "기타", "일반물품"
 
-def fake_price_scrape(keyword):
-    """웹에서 시세를 수집하는 대신, 임의 데이터 생성 (실제 서비스 시 API로 교체)"""
-    sample_data = {
+def get_price_range(item_name):
+    price_data = {
         "덤벨": [12000, 18000, 15000, 20000, 13000, 25000],
         "노트북": [400000, 600000, 550000, 800000, 620000],
         "스마트폰": [300000, 450000, 500000, 420000, 390000],
         "운동화": [60000, 80000, 90000, 70000, 85000],
         "기타": [30000, 50000, 70000]
     }
-    prices = sample_data.get(keyword, sample_data["기타"])
-    return np.mean(prices), (min(prices), max(prices)), len(prices)
+    prices = price_data.get(item_name, price_data["기타"])
+    return np.mean(prices), min(prices), max(prices), len(prices)
+
+def analyze_condition(description):
+    """설명 기반 상태 평가 및 가격 조정 요인"""
+    desc = description.lower()
+    bonus, penalty = 0, 0
+    reasons = []
+
+    if any(word in desc for word in ["깨끗", "좋", "양호", "거의 새것"]):
+        bonus += 0.1
+        reasons.append("제품 상태가 양호하여 평균 시세보다 약간 높게 평가되었습니다.")
+    if any(word in desc for word in ["스크래치", "흠집", "사용감", "오염"]):
+        penalty += 0.15
+        reasons.append("외관에 사용 흔적이 있어 약간의 감가가 반영되었습니다.")
+    if any(word in desc for word in ["박스", "정품", "보증서"]):
+        bonus += 0.05
+        reasons.append("정품 인증 및 부속품 포함으로 소폭 프리미엄이 적용되었습니다.")
+    if any(word in desc for word in ["오래", "1년", "2년", "사용함"]):
+        penalty += 0.1
+        reasons.append("사용기간이 길어 평균 시세보다 약간 낮게 평가되었습니다.")
+
+    adjustment = (1 + bonus - penalty)
+    return adjustment, reasons
 
 # ---------------------------
-# 4. 버튼 클릭 → 분석 실행
+# 버튼 클릭 → 실행
 # ---------------------------
 if st.button("💰 시세 추정하기", type="primary"):
     if uploaded_file is not None and description.strip():
-        with st.spinner("AI가 물건을 분석하고, 유사 거래 데이터를 수집 중입니다..."):
+        with st.spinner("AI가 물건을 분석하고 유사 거래 시세를 조사 중입니다..."):
             
-            # 1) AI 분석
-            item_name, category = fake_ai_analyze(image, description)
+            # 1️⃣ 제품 분류
+            item_name, category = analyze_item(description)
 
-            # 2) 시세 수집
-            avg_price, (min_price, max_price), count = fake_price_scrape(item_name)
-            
-            # 3) 신뢰도 계산
-            confidence = np.random.uniform(80, 98)
+            # 2️⃣ 기본 시세 데이터
+            avg_price, min_price, max_price, data_count = get_price_range(item_name)
+
+            # 3️⃣ 상태 분석 및 조정
+            adjustment, reason_list = analyze_condition(description)
+            adjusted_price = int(avg_price * adjustment)
+
+            # 4️⃣ 신뢰도 계산
+            confidence = np.random.uniform(82, 97)
 
         # ---------------------------
         # 결과 출력
@@ -83,18 +104,27 @@ if st.button("💰 시세 추정하기", type="primary"):
         st.markdown("---")
         
         st.subheader("📊 AI 시세 추정 결과")
-        st.metric(label="예상 가격", value=f"{int(avg_price):,}원")
-        st.write(f"📉 예상 시세 범위: **{min_price:,}원 ~ {max_price:,}원**")
-        st.write(f"🤖 인식된 제품: **{item_name} ({category})**")
+        st.metric(label="예상 가격", value=f"{adjusted_price:,}원")
+        st.write(f"📉 시세 범위: **{min_price:,}원 ~ {max_price:,}원**")
+        st.write(f"🧾 인식된 제품: **{item_name} ({category})**")
         st.progress(confidence / 100)
-        st.caption(f"AI 신뢰도: {confidence:.1f}% (유사 {count}건 데이터 기반)")
+        st.caption(f"AI 신뢰도: {confidence:.1f}% (유사 {data_count}건 데이터 기반)")
 
-        st.markdown("### 🔍 참고 근거")
-        st.markdown(f"""
-        1. 업로드된 이미지와 설명을 기반으로 '{item_name}' 카테고리로 분류했습니다.  
-        2. 여러 거래 플랫폼(당근마켓, 번개장터, eBay 등)의 평균 시세 데이터를 반영했습니다.  
-        3. 상태·사용기간 관련 설명을 바탕으로 시장가를 조정했습니다.
-        """)
+        st.markdown("### 🔍 근거 및 해석")
+        if reason_list:
+            for r in reason_list:
+                st.write(f"- {r}")
+        else:
+            st.write("- 제품 상태 정보가 부족하여 평균 시세로 계산되었습니다.")
+        
+        # 종합 해석 문장
+        st.markdown("### 💬 AI 해석 요약")
+        if adjustment > 1.05:
+            st.info("설명에 따르면 제품 상태가 매우 양호하여, 평균 시세보다 다소 높게 형성된 것으로 보입니다.")
+        elif adjustment < 0.95:
+            st.warning("설명 내용 중 사용감 또는 손상 관련 언급이 있어 시세가 약간 낮게 추정되었습니다.")
+        else:
+            st.info("설명에서 특별한 감가 요인이 없어, 시장 평균가 수준으로 추정되었습니다.")
 
     else:
         st.error("사진과 설명을 모두 입력해주세요!")

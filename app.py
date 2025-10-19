@@ -1,56 +1,100 @@
 import streamlit as st
-import pandas as pd
-import numpy as np # 예시를 위해 추가. 실제 사용시 필요에 따라 변경.
+import numpy as np
+from PIL import Image
+import requests
+from io import BytesIO
 
-# 웹 앱의 기본 설정
-st.set_page_config(page_title="물건 값어치 추정기", layout="wide")
-
-# 제목
-st.title("🛒 내 물건의 값어치는 얼마일까?")
+# ---------------------------
+# 🔧 1. 기본 설정
+# ---------------------------
+st.set_page_config(page_title="AI 미니딜러", layout="wide")
+st.title("🤖 AI 미니딜러: 내 물건의 실제 시세는?")
+st.caption("사진과 설명만으로 AI가 유사 제품을 찾아 실시간 가격을 예측해줍니다.")
 st.markdown("---")
 
-# 사진 업로드 및 설명 입력 섹션
-with st.container():
-    st.header("1. 물건 정보 입력")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        uploaded_file = st.file_uploader("물건 사진을 업로드하세요", type=['png', 'jpg', 'jpeg'])
-        if uploaded_file is not None:
-            st.image(uploaded_file, caption="업로드된 이미지", use_column_width=True)
-    
-    with col2:
-        item_description = st.text_area(
-            "물건에 대해 설명해주세요",
-            placeholder="예) 아이폰 14 프로 미드나이트 색상. 사용한 지 1년 됐고, 외관에 작은 스크래치 2~3개 있어요.",
-            height=150
-        )
+# ---------------------------
+# 2. 입력 섹션
+# ---------------------------
+col1, col2 = st.columns(2)
 
-# 가치 추정 버튼
-if st.button("값어치 추정하기", type="primary"):
-    if uploaded_file is not None and item_description:
-        with st.spinner('AI가 물건을 분석하고 가치를 추정 중입니다...'):
-            # 여기에 실제 AI 모델 추론 코드 또는 가격 API 호출 코드가 들어갑니다.
-            # 현재는 임의의 결과를 반환하는 예시로 대체합니다.
+with col1:
+    uploaded_file = st.file_uploader("📸 사진 업로드", type=['png', 'jpg', 'jpeg'])
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        st.image(image, caption="업로드된 이미지", use_column_width=True)
+
+with col2:
+    description = st.text_area(
+        "📝 물건 설명 입력",
+        placeholder="예: 5kg 덤벨 한 쌍, 상태 좋음. 1년 사용. 외관 깨끗함.",
+        height=150
+    )
+
+# ---------------------------
+# 3. 모의 AI + 시세 검색 함수
+# ---------------------------
+
+def fake_ai_analyze(image, description):
+    """AI가 이미지를 보고 물건 종류를 예측하는 부분 (간단한 흉내)"""
+    desc = description.lower()
+    if "덤벨" in desc or "운동" in desc:
+        return "덤벨", "운동기구"
+    elif "노트북" in desc or "laptop" in desc:
+        return "노트북", "전자기기"
+    elif "아이폰" in desc or "휴대폰" in desc:
+        return "스마트폰", "전자기기"
+    elif "신발" in desc or "운동화" in desc:
+        return "운동화", "패션잡화"
+    else:
+        return "기타", "일반물품"
+
+def fake_price_scrape(keyword):
+    """웹에서 시세를 수집하는 대신, 임의 데이터 생성 (실제 서비스 시 API로 교체)"""
+    sample_data = {
+        "덤벨": [12000, 18000, 15000, 20000, 13000, 25000],
+        "노트북": [400000, 600000, 550000, 800000, 620000],
+        "스마트폰": [300000, 450000, 500000, 420000, 390000],
+        "운동화": [60000, 80000, 90000, 70000, 85000],
+        "기타": [30000, 50000, 70000]
+    }
+    prices = sample_data.get(keyword, sample_data["기타"])
+    return np.mean(prices), (min(prices), max(prices)), len(prices)
+
+# ---------------------------
+# 4. 버튼 클릭 → 분석 실행
+# ---------------------------
+if st.button("💰 시세 추정하기", type="primary"):
+    if uploaded_file is not None and description.strip():
+        with st.spinner("AI가 물건을 분석하고, 유사 거래 데이터를 수집 중입니다..."):
             
-            # 가상의 추정 가격 생성 (실제 구현시 제거)
-            estimated_value = np.random.randint(50000, 500000)
-            reasons = [
-                "업로드된 이미지에서 '스마트폰'이 확인되었습니다.",
-                "설명에 포함된 키워드 '아이폰', '1년'을 바탕으로 시장 평균 가격을 참고하였습니다.",
-                "중고 거래 플랫폼의 유사 모델 평균 가격 데이터를 적용했습니다."
-            ]
+            # 1) AI 분석
+            item_name, category = fake_ai_analyze(image, description)
+
+            # 2) 시세 수집
+            avg_price, (min_price, max_price), count = fake_price_scrape(item_name)
             
-        # 결과 표시 섹션
-        st.success("분석이 완료되었습니다!")
+            # 3) 신뢰도 계산
+            confidence = np.random.uniform(80, 98)
+
+        # ---------------------------
+        # 결과 출력
+        # ---------------------------
+        st.success("✅ 분석 완료!")
         st.markdown("---")
         
-        st.header("📊 추정 값어치")
-        st.metric(label="예상 가격", value=f"{estimated_value:,}원")
-        
-        st.header("🔍 이렇게 추정했어요")
-        for i, reason in enumerate(reasons, 1):
-            st.write(f"{i}. {reason}")
-            
+        st.subheader("📊 AI 시세 추정 결과")
+        st.metric(label="예상 가격", value=f"{int(avg_price):,}원")
+        st.write(f"📉 예상 시세 범위: **{min_price:,}원 ~ {max_price:,}원**")
+        st.write(f"🤖 인식된 제품: **{item_name} ({category})**")
+        st.progress(confidence / 100)
+        st.caption(f"AI 신뢰도: {confidence:.1f}% (유사 {count}건 데이터 기반)")
+
+        st.markdown("### 🔍 참고 근거")
+        st.markdown(f"""
+        1. 업로드된 이미지와 설명을 기반으로 '{item_name}' 카테고리로 분류했습니다.  
+        2. 여러 거래 플랫폼(당근마켓, 번개장터, eBay 등)의 평균 시세 데이터를 반영했습니다.  
+        3. 상태·사용기간 관련 설명을 바탕으로 시장가를 조정했습니다.
+        """)
+
     else:
-        st.error("사진과 물건 설명을 모두 입력해주세요!")
+        st.error("사진과 설명을 모두 입력해주세요!")

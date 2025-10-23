@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import sys
 import io
 import traceback
@@ -12,12 +13,12 @@ import streamlit as st
 from openai import OpenAI
 
 # -------------------------
-# stdout UTF-8 강제 설정
+# ✅ UTF-8 환경 강제 설정 (핵심 수정)
 # -------------------------
-try:
-    sys.stdout.reconfigure(encoding='utf-8')
-except Exception:
-    sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8', errors='replace')
+os.environ["PYTHONIOENCODING"] = "utf-8"
+sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8', errors='replace')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # -------------------------
 # 한글 폰트 자동 설정
@@ -30,13 +31,11 @@ def set_korean_font():
     for c in candidates:
         if c in available:
             plt.rcParams['font.family'] = c
-            return c
-    return None
-
+            return
 set_korean_font()
 
 # -------------------------
-# OpenAI 클라이언트 설정
+# OpenAI 설정
 # -------------------------
 try:
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -45,7 +44,7 @@ except Exception:
     st.stop()
 
 # -------------------------
-# Streamlit 페이지 설정
+# 페이지 설정
 # -------------------------
 st.set_page_config(page_title="AI 시세 분석기", page_icon="💰", layout="centered")
 st.title("💰 AI 기반 아이템 시세 분석기")
@@ -141,7 +140,7 @@ with st.spinner("AI가 시세를 분석 중입니다..."):
         st.code(ai_result, language="markdown")
 
     except Exception as e:
-        err_text = "".join(traceback.format_exception_only(type(e), e)).strip()
+        err_text = traceback.format_exc()
         err_text = err_text.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
         st.error("❌ 시세 분석 중 오류가 발생했습니다.")
         st.error(f"오류 내용: {err_text}")

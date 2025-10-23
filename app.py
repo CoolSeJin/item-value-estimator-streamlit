@@ -22,20 +22,42 @@ st.set_page_config(
 )
 
 # -------------------------
-# 한글 폰트 설정
+# 한글 폰트 설정 (강화된 버전)
 # -------------------------
 plt.rcParams['axes.unicode_minus'] = False
 
 def set_korean_font():
-    candidates = ['Malgun Gothic', 'AppleGothic', 'NanumGothic', 'Noto Sans CJK KR', 'DejaVu Sans']
-    available = {f.name for f in fm.fontManager.ttflist}
-    for c in candidates:
-        if c in available:
-            plt.rcParams['font.family'] = c
-            return
-    plt.rcParams['font.family'] = 'DejaVu Sans'
+    """한글 폰트 설정 함수"""
+    try:
+        # 폰트 후보군
+        korean_fonts = [
+            'Malgun Gothic', 
+            'AppleGothic', 
+            'NanumGothic', 
+            'Noto Sans CJK KR', 
+            'DejaVu Sans',
+            'D2Coding',
+            'Gulim',
+            'Dotum'
+        ]
+        
+        # 사용 가능한 폰트 찾기
+        available_fonts = {f.name for f in fm.fontManager.ttflist}
+        
+        for font in korean_fonts:
+            if font in available_fonts:
+                plt.rcParams['font.family'] = font
+                return font
+        
+        # 한글 폰트가 없을 경우 기본 폰트 사용
+        plt.rcParams['font.family'] = 'DejaVu Sans'
+        return "DejaVu Sans"
+        
+    except Exception as e:
+        plt.rcParams['font.family'] = 'DejaVu Sans'
+        return "DejaVu Sans"
 
-set_korean_font()
+font_used = set_korean_font()
 
 st.title("💰 AI 기반 아이템 시세 분석기")
 st.caption("사진과 설명을 업로드하면 AI가 자동으로 시세를 예측합니다.")
@@ -129,11 +151,15 @@ Trading Tips: 상태가 양호하고 녹이 슬지 않은 제품이라면 거래
         raise Exception(f"분석 중 오류 발생: {str(e)}")
 
 # -------------------------
-# 차트 생성 함수
+# 차트 생성 함수 (수정된 버전)
 # -------------------------
 def create_price_chart(item_type, estimated_price=None):
     """시세 추이 차트 생성"""
     try:
+        # 폰트 설정 확인
+        plt.rcParams['font.family'] = font_used
+        plt.rcParams['axes.unicode_minus'] = False
+        
         np.random.seed(42)
         months = np.arange(1, 13)
 
@@ -159,20 +185,47 @@ def create_price_chart(item_type, estimated_price=None):
         noise = np.random.normal(0, base_price * 0.03, 12)
         prices = np.maximum(trend + noise, min_price * 0.5)
 
-        fig, ax = plt.subplots(figsize=(8, 4.5))
-        ax.plot(months, prices, marker="o", linewidth=2, color="#FF6B6B")
-        ax.fill_between(months, prices * 0.97, prices * 1.03, alpha=0.15, color="#FFE66D")
-        ax.set_title(f"'{item_type}' 카테고리 시세 추이 (예상)", fontsize=14, fontweight='bold')
-        ax.set_xlabel("월")
-        ax.set_ylabel("가격 (원)")
-        ax.grid(True, alpha=0.3)
-        ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: f'{x:,.0f}'))
+        # 차트 생성
+        fig, ax = plt.subplots(figsize=(10, 5))
         
+        # 데이터 플롯
+        ax.plot(months, prices, marker="o", linewidth=2, color="#FF6B6B", markersize=6)
+        ax.fill_between(months, prices * 0.97, prices * 1.03, alpha=0.15, color="#FFE66D")
+        
+        # 스타일 설정
+        ax.set_title(f"'{item_type}' 카테고리 시세 추이 (예상)", fontsize=16, fontweight='bold', pad=20)
+        ax.set_xlabel("월", fontsize=12)
+        ax.set_ylabel("가격 (원)", fontsize=12)
+        
+        # x축 설정 (텍스트 깨짐 방지)
+        ax.set_xticks(months)
+        ax.set_xticklabels(['1월', '2월', '3월', '4월', '5월', '6월', 
+                          '7월', '8월', '9월', '10월', '11월', '12월'], 
+                         fontsize=10, rotation=45)
+        
+        # y축 설정
+        ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: f'{x:,.0f}'))
+        ax.tick_params(axis='y', labelsize=10)
+        
+        # 그리드 및 레이아웃
+        ax.grid(True, alpha=0.3, linestyle='--')
+        ax.set_axisbelow(True)
+        
+        # 여백 조정
         plt.tight_layout()
+        
         return fig
+        
     except Exception as e:
         st.error(f"차트 생성 오류: {str(e)}")
-        return None
+        # 오류 발생시 기본 차트 반환
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.text(0.5, 0.5, '차트 생성 중 오류가 발생했습니다', 
+                horizontalalignment='center', verticalalignment='center',
+                transform=ax.transAxes, fontsize=12)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        return fig
 
 # -------------------------
 # 사이드바
@@ -194,6 +247,10 @@ with st.sidebar:
     - 거래 팁
     - 시세 추이 차트
     """)
+    
+    # 폰트 정보 표시
+    st.header("⚙️ 시스템 정보")
+    st.write(f"사용 중인 폰트: {font_used}")
 
 # -------------------------
 # 메인 콘텐츠

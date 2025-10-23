@@ -12,7 +12,7 @@ import streamlit as st
 from openai import OpenAI
 
 # -------------------------
-# 안정적으로 stdout UTF-8 설정
+# stdout UTF-8 강제 설정
 # -------------------------
 try:
     sys.stdout.reconfigure(encoding='utf-8')
@@ -33,7 +33,7 @@ def set_korean_font():
             return c
     return None
 
-font_used = set_korean_font()
+set_korean_font()
 
 # -------------------------
 # OpenAI 클라이언트 설정
@@ -59,7 +59,7 @@ def encode_image_to_base64(image_file):
         image_file.seek(0)
         data = image_file.read()
         return base64.b64encode(data).decode('ascii')
-    except Exception as e:
+    except Exception:
         return None
 
 # -------------------------
@@ -190,5 +190,8 @@ except Exception as e:
 # -------------------------
 st.markdown("---")
 st.markdown("💡 **이미지 기반 AI 분석을 원한다면**")
-st.markdown("1️⃣ 이미지를 외부 호스팅(예: Imgur, S3 등)에 업로드하고, 그 URL을 설명에 포함하세요.  
-2️⃣ 또는 OpenAI의 멀티모달 API(`gpt-4o`)로 이미지를 함께 분석하도록 코드를 확장할 수 있습니다. 원하시면 예시 코드도 만들어드릴게요.")
+st.markdown("""
+1️⃣ 이미지를 외부 호스팅(예: Imgur, S3 등)에 업로드하고, 그 URL을 설명에 포함하세요.  
+2️⃣ 또는 OpenAI의 멀티모달 API(`gpt-4o`)로 이미지를 함께 분석하도록 코드를 확장할 수 있습니다.  
+   원하시면 예시 코드도 만들어드릴게요.
+""")

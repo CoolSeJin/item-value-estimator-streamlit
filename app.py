@@ -1,16 +1,29 @@
+# -*- coding: utf-8 -*-
+import sys
+sys.stdout.reconfigure(encoding='utf-8')  # ✅ 한글 출력 오류 방지
+
 import streamlit as st
 from openai import OpenAI
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import numpy as np
 from PIL import Image
 import io
 import base64
+import matplotlib.ticker as ticker
+
+# ✅ 한글 폰트 설정 (Windows / macOS / Linux 호환)
+plt.rcParams['axes.unicode_minus'] = False
+try:
+    plt.rcParams['font.family'] = 'Malgun Gothic'   # Windows
+except:
+    plt.rcParams['font.family'] = 'AppleGothic'     # macOS
+# (Streamlit Cloud에서 깨지면 fonts-nanum 설치 필요)
 
 # -------------------------------
 # 1️⃣ API 키 설정
 # -------------------------------
 try:
-    # Streamlit Cloud의 "Secrets"에 OPENAI_API_KEY 등록 필수
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 except Exception as e:
     st.error("⚠️ API 키 설정 중 오류가 발생했습니다. Secrets에 OPENAI_API_KEY가 설정되었는지 확인해주세요.")
@@ -21,17 +34,14 @@ st.title("💰 AI 기반 아이템 시세 분석기")
 st.write("사진과 설명을 업로드하면 AI가 자동으로 시세를 예측하고, 향후 변동까지 분석해드려요!")
 
 # -------------------------------
-# 2️⃣ 이미지 처리 함수 (수정된 버전)
+# 2️⃣ 이미지 처리 함수
 # -------------------------------
 def encode_image(image_file):
     """이미지를 base64로 안전하게 인코딩"""
     try:
-        # 파일 포인터를 처음으로 되돌림
         image_file.seek(0)
-        # 바이너리 데이터 읽기
         image_data = image_file.read()
-        # base64로 인코딩 (ASCII-safe)
-        encoded_string = base64.b64encode(image_data).decode('ascii')
+        encoded_string = base64.b64encode(image_data).decode('utf-8')  # ✅ UTF-8로 변경
         return encoded_string
     except Exception as e:
         st.error(f"이미지 처리 중 오류: {str(e)}")
@@ -40,7 +50,6 @@ def encode_image(image_file):
 def validate_image_with_ai(image_base64, item_description):
     """AI를 통해 이미지가 상품과 관련 있는지 검증"""
     try:
-        # 시스템 메시지를 ASCII-safe하게 작성
         system_message = """
         You are an image validation expert. Evaluate if the uploaded image matches the described product 
         and is suitable for product price analysis. Reject inappropriate images (landscapes, faces, text-only images, etc.).
@@ -82,7 +91,6 @@ item_description = st.text_area("상품 설명을 입력하세요 (브랜드, �
 item_type = st.selectbox("상품 카테고리", ["전자기기", "의류", "신발", "가방", "가구", "도서", "기타"])
 
 if uploaded_file and item_description:
-    # 이미지 표시
     try:
         image = Image.open(uploaded_file)
         st.image(image, caption="업로드된 상품", use_container_width=True)
@@ -125,7 +133,6 @@ if uploaded_file and item_description:
     # -------------------------------
     with st.spinner("AI가 시세를 분석 중입니다..."):
         try:
-            # ASCII-safe한 시스템 메시지
             system_message = """
             You are an experienced used price analysis expert. 
             Predict the average online used price for the product based on the image and description.
@@ -200,15 +207,12 @@ Please analyze the price and provide insights.
             fig, ax = plt.subplots(figsize=(10, 6))
             ax.plot(months, prices, marker="o", linewidth=2, color="#FF6B6B")
             ax.fill_between(months, prices * 0.95, prices * 1.05, alpha=0.2, color="#FF6B6B")
-            ax.set_title(f"Price Trend for {item_type} Category (Estimated)", fontsize=14, fontweight='bold')
-            ax.set_xlabel("Month", fontsize=12)
-            ax.set_ylabel("Price (KRW)", fontsize=12)
+            ax.set_title(f"{item_type} 카테고리 시세 추이 (예상치)", fontsize=14, fontweight='bold')
+            ax.set_xlabel("월", fontsize=12)
+            ax.set_ylabel("가격 (원)", fontsize=12)
             ax.grid(True, alpha=0.3)
             
-            # y축 형식을 설정
-            import matplotlib.ticker as ticker
             ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: f'{x:,.0f}'))
-            
             plt.tight_layout()
             st.pyplot(fig)
 

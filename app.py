@@ -10,7 +10,6 @@ import matplotlib.font_manager as fm
 import matplotlib.ticker as ticker
 from PIL import Image
 import streamlit as st
-from openai import OpenAI
 
 # -------------------------
 # 페이지 설정
@@ -37,15 +36,6 @@ def set_korean_font():
     plt.rcParams['font.family'] = 'DejaVu Sans'
 
 set_korean_font()
-
-# -------------------------
-# OpenAI 설정
-# -------------------------
-try:
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except Exception:
-    st.error("⚠️ API 키 설정 중 오류가 발생했습니다. Secrets에 OPENAI_API_KEY가 등록되어 있는지 확인하세요.")
-    st.stop()
 
 st.title("💰 AI 기반 아이템 시세 분석기")
 st.caption("사진과 설명을 업로드하면 AI가 자동으로 시세를 예측합니다.")
@@ -89,64 +79,54 @@ def extract_price_from_analysis(analysis_text):
         return None
 
 # -------------------------
-# AI 분석 함수
+# AI 분석 함수 (더미 데이터)
 # -------------------------
 def analyze_price_with_ai(item_description, item_type, image_base64=None):
     """AI를 이용한 시세 분석"""
     try:
-        system_message = (
-            "You are an experienced used price analysis expert. "
-            "Based on the product description and category, provide an estimated average used price in KRW. "
-            "Respond in the following format:\n"
-            "Estimated Price: [price] KRW\n"
-            "Analysis Basis: [2-3 sentences]\n"
-            "Market Outlook: [1-2 sentences]\n"
-            "Trading Tips: [1-2 sentences]\n"
-        )
-
-        user_prompt = (
-            f"Category: {item_type}\n"
-            f"Description: {item_description}\n\n"
-            "Please estimate the price and give a brief analysis, outlook, and trading tips."
-        )
-
-        messages = [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": user_prompt}
-        ]
-
-        # 이미지가 있는 경우 멀티모달 분석
-        if image_base64:
-            messages = [
-                {"role": "system", "content": system_message},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": user_prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_base64}"
-                            }
-                        }
-                    ]
-                }
-            ]
-            model = "gpt-4o"
-        else:
-            model = "gpt-4o-mini"
-
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=0.6,
-            max_tokens=600
-        )
-
-        return response.choices[0].message.content.strip()
-
+        # 카테고리별 더미 응답
+        dummy_responses = {
+            "전자기기": """Estimated Price: 350,000 KRW
+Analysis Basis: 전자기기 카테고리는 기술 발전 속도가 빠르며, 출시 시기와 상태에 따라 가격 변동이 큽니다. 최신 모델일수록 가치가 높습니다.
+Market Outlook: 중고 전자기기 시장은 꾸준한 수요가 있으며, 신제품 출시 시 기존 모델 가격이 하락하는 경향이 있습니다.
+Trading Tips: 제품의 사양, 사용 기간, 외관 상태를 상세히 기재하면 더 빠른 거래가 가능합니다.""",
+            
+            "의류": """Estimated Price: 25,000 KRW
+Analysis Basis: 의류는 브랜드, 상태, 시즌에 따라 가격 차이가 큽니다. 한정판이나 인기 브랜드의 경우 프리미엄이 발생할 수 있습니다.
+Market Outlook: 중고 의류 시장은 지속적으로 성장 중이며, 특히 명품 브랜드의 수요가 높습니다.
+Trading Tips: 사진을 선명하게 찍고, 사이즈와 상태를 정확히 표기하면 거래 성공률이 높아집니다.""",
+            
+            "신발": """Estimated Price: 75,000 KRW
+Analysis Basis: 신발은 브랜드와 마모 상태에 따라 가격이 결정됩니다. 한정판이나 콜라보레이션 제품은 높은 가치를 유지합니다.
+Market Outlook: 중고 신발 시장은 컬렉터와 실용적 사용자 모두에게 인기가 있습니다.
+Trading Tips: 밑창 마모 상태와 박스 유무를 명시하는 것이 중요합니다.""",
+            
+            "가방": """Estimated Price: 120,000 KRW
+Analysis Basis: 가방은 브랜드 인지도, 소재, 상태에 따라 가격이 크게 달라집니다. 명품 브랜드의 경우 보증서와 더스트백 유무가 중요합니다.
+Market Outlook: 중고 명품 가방 시장은 매우 활발하며, 일부 제품은 시간이 지날수록 가치가 상승하기도 합니다.
+Trading Tips: 정품 인증과 함께 상세한 사진을 여러 각도에서 제공하세요.""",
+            
+            "가구": """Estimated Price: 85,000 KRW
+Analysis Basis: 가구는 재질, 브랜드, 크기, 상태에 따라 가격이 결정됩니다. 실용성과 디자인이 모두 중요한 요소입니다.
+Market Outlook: 이사 시즌에 수요가 증가하며, 공간 활용도가 높은 다기능 가구의 인기가 높습니다.
+Trading Tips: 배송 가능 여부와 조립 필요성을 미리 알려주는 것이 좋습니다.""",
+            
+            "도서": """Estimated Price: 8,000 KRW
+Analysis Basis: 도서는 절판 여부, 출판년도, 상태에 따라 가격이 결정됩니다. 참고서나 전문서적은 수요가 꾸준합니다.
+Market Outlook: 전자책의 보급에도 불구하고, 절판된 도서나 초판본은 수집 가치가 있습니다.
+Trading Tips: 페이지 훼손 여부와 필기 흔적 유무를 정확히 표기하세요.""",
+            
+            "기타": """Estimated Price: 45,000 KRW
+Analysis Basis: 10kg 덤벨은 중고 시장에서 수요가 꾸준한 편입니다. 일반적으로 새 제품 가격이 6-8만 원대인 점을 고려할 때, 중고 가격은 4-5만 원대가 적절합니다.
+Market Outlook: 홈트레이닝 수요가 지속되면서 덤벨 시장은 안정적인 편입니다.
+Trading Tips: 상태가 양호하고 녹이 슬지 않은 제품이라면 거래가 빠르게 이루어질 수 있습니다."""
+        }
+        
+        # 선택된 카테고리에 해당하는 응답 반환
+        return dummy_responses.get(item_type, dummy_responses["기타"])
+        
     except Exception as e:
-        raise Exception(f"AI 분석 중 오류 발생: {str(e)}")
+        raise Exception(f"분석 중 오류 발생: {str(e)}")
 
 # -------------------------
 # 차트 생성 함수
@@ -281,7 +261,7 @@ analyze_button = st.button("🔍 시세 분석 시작", type="primary", use_cont
 
 # AI 분석 실행
 if analyze_button:
-    with st.spinner("🤖 AI가 시세를 분석 중입니다... 잠시만 기다려주세요."):
+    with st.spinner("🤖 시세를 분석 중입니다... 잠시만 기다려주세요."):
         try:
             final_image_base64 = image_base64 if use_image else None
             
@@ -293,7 +273,7 @@ if analyze_button:
             
             # 결과 표시
             st.success("✅ 분석이 완료되었습니다!")
-            st.subheader("📊 AI 시세 분석 결과")
+            st.subheader("📊 시세 분석 결과")
             
             # 결과 파싱 및 표시
             result_lines = ai_result.split('\n')
@@ -314,7 +294,6 @@ if analyze_button:
                     st.markdown(f"**💡 {line}**")
                     st.write(line.replace('Trading Tips:', '').strip())
                 elif ':' in line and not line.startswith(' '):
-                    # 기타 제목 있는 내용
                     parts = line.split(':', 1)
                     st.markdown(f"**{parts[0]}:**")
                     if len(parts) > 1:
@@ -339,7 +318,7 @@ if analyze_button:
             # 분석 방법 안내
             with st.expander("🔍 이 분석은 어떻게 진행되었나요?"):
                 if use_image:
-                    st.write("✅ **이미지 + 텍스트 분석**: 상품의 외관, 상태, 모델 등을 이미지로 확인하여 더 정확한 분석을 진행했습니다.")
+                    st.write("✅ **이미지 분석**: 상품의 외관, 상태 등을 이미지로 확인하여 더 정확한 분석을 진행했습니다.")
                 else:
                     st.write("📝 **텍스트 분석**: 입력하신 설명을 기반으로 분석했습니다. 이미지를 추가하면 더 정확한 분석이 가능합니다.")
                     

@@ -13,7 +13,7 @@ import streamlit as st
 from openai import OpenAI
 
 # -------------------------
-# ✅ UTF-8 환경 강제 설정
+# ✅ UTF-8 환경 설정
 # -------------------------
 os.environ["PYTHONIOENCODING"] = "utf-8"
 sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8', errors='replace')
@@ -21,7 +21,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # -------------------------
-# 한글 폰트 자동 설정
+# 한글 폰트 설정
 # -------------------------
 plt.rcParams['axes.unicode_minus'] = False
 
@@ -31,10 +31,7 @@ def set_korean_font():
     for c in candidates:
         if c in available:
             plt.rcParams['font.family'] = c
-            st.success(f"한글 폰트 설정: {c}")
             return
-    # 사용 가능한 폰트가 없을 경우
-    st.warning("한글 폰트를 찾을 수 없습니다. 기본 폰트를 사용합니다.")
     plt.rcParams['font.family'] = 'DejaVu Sans'
 
 set_korean_font()
@@ -51,14 +48,21 @@ except Exception:
 # -------------------------
 # 페이지 설정
 # -------------------------
-st.set_page_config(page_title="AI 시세 분석기", page_icon="💰", layout="centered")
+st.set_page_config(
+    page_title="AI 시세 분석기", 
+    page_icon="💰", 
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
+
 st.title("💰 AI 기반 아이템 시세 분석기")
 st.caption("사진과 설명을 업로드하면 AI가 자동으로 시세를 예측합니다.")
 
 # -------------------------
-# 이미지 Base64 인코딩
+# 유틸리티 함수
 # -------------------------
 def encode_image_to_base64(image_file):
+    """이미지를 Base64로 인코딩"""
     try:
         image_file.seek(0)
         data = image_file.read()
@@ -67,21 +71,36 @@ def encode_image_to_base64(image_file):
         st.error(f"이미지 인코딩 오류: {str(e)}")
         return None
 
-# -------------------------
-# 이미지 검증
-# -------------------------
 def validate_image(pil_image):
+    """이미지 유효성 검사"""
     w, h = pil_image.size
     if w < 100 or h < 100:
         return False, "이미지 해상도가 너무 낮습니다."
-    if w * h > 10000000:  # 1000만 픽셀 이상
+    if w * h > 10000000:
         return False, "이미지 크기가 너무 큽니다."
     return True, ""
 
+def extract_price_from_analysis(analysis_text):
+    """AI 분석 결과에서 가격 정보 추출"""
+    try:
+        import re
+        match = re.search(r'Estimated Price:\s*([\d,]+)\s*KRW', analysis_text)
+        if match:
+            price_str = match.group(1).replace(',', '')
+            return int(price_str)
+        match = re.search(r'([\d,]+)\s*KRW', analysis_text)
+        if match:
+            price_str = match.group(1).replace(',', '')
+            return int(price_str)
+        return None
+    except:
+        return None
+
 # -------------------------
-# AI 시세 분석 함수
+# AI 분석 함수
 # -------------------------
 def analyze_price_with_ai(item_description, item_type, image_base64=None):
+    """AI를 이용한 시세 분석"""
     try:
         system_message = (
             "You are an experienced used price analysis expert. "
@@ -121,9 +140,9 @@ def analyze_price_with_ai(item_description, item_type, image_base64=None):
                     ]
                 }
             ]
-            model = "gpt-4o"  # 이미지 분석 가능한 모델
+            model = "gpt-4o"
         else:
-            model = "gpt-4o-mini"  # 텍스트 전용 모델
+            model = "gpt-4o-mini"
 
         response = client.chat.completions.create(
             model=model,
@@ -138,9 +157,10 @@ def analyze_price_with_ai(item_description, item_type, image_base64=None):
         raise Exception(f"AI 분석 중 오류 발생: {str(e)}")
 
 # -------------------------
-# 시세 차트 생성 함수
+# 차트 생성 함수
 # -------------------------
 def create_price_chart(item_type, estimated_price=None):
+    """시세 추이 차트 생성"""
     try:
         np.random.seed(42)
         months = np.arange(1, 13)
@@ -157,17 +177,15 @@ def create_price_chart(item_type, estimated_price=None):
 
         min_price, max_price = price_ranges.get(item_type, (10000, 200000))
         
-        # 예상 가격이 있으면 그 주변으로 시뮬레이션
         if estimated_price:
             base_price = estimated_price
-            # 예상 가격이 범위를 벗어나면 조정
             base_price = max(min_price * 0.8, min(max_price * 1.2, base_price))
         else:
             base_price = np.random.randint(min_price, max_price)
 
         trend = np.linspace(base_price * 0.95, base_price * 1.05, 12)
         noise = np.random.normal(0, base_price * 0.03, 12)
-        prices = np.maximum(trend + noise, min_price * 0.5)  # 음수 방지
+        prices = np.maximum(trend + noise, min_price * 0.5)
 
         fig, ax = plt.subplots(figsize=(8, 4.5))
         ax.plot(months, prices, marker="o", linewidth=2, color="#FF6B6B")
@@ -178,10 +196,6 @@ def create_price_chart(item_type, estimated_price=None):
         ax.grid(True, alpha=0.3)
         ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: f'{x:,.0f}'))
         
-        # 현재 월 강조
-        current_month = 6  # 예시로 6월
-        ax.plot(current_month, prices[current_month-1], 'ro', markersize=8)
-        
         plt.tight_layout()
         return fig
     except Exception as e:
@@ -189,44 +203,53 @@ def create_price_chart(item_type, estimated_price=None):
         return None
 
 # -------------------------
-# 가격 추출 함수
+# 사이드바
 # -------------------------
-def extract_price_from_analysis(analysis_text):
-    """AI 분석 결과에서 가격 정보 추출"""
-    try:
-        import re
-        # "Estimated Price: 150,000 KRW" 형식에서 숫자 추출
-        match = re.search(r'Estimated Price:\s*([\d,]+)\s*KRW', analysis_text)
-        if match:
-            price_str = match.group(1).replace(',', '')
-            return int(price_str)
-        
-        # 다른 패턴 시도
-        match = re.search(r'([\d,]+)\s*KRW', analysis_text)
-        if match:
-            price_str = match.group(1).replace(',', '')
-            return int(price_str)
-            
-        return None
-    except:
-        return None
+with st.sidebar:
+    st.header("ℹ️ 사용 방법")
+    st.markdown("""
+    1. **상품 사진** 업로드 (선택)
+    2. **상품 설명** 입력 (필수)
+    3. **카테고리** 선택
+    4. **시세 분석 시작** 버튼 클릭
+    """)
+    
+    st.header("📊 분석 항목")
+    st.markdown("""
+    - 예상 시세
+    - 분석 근거
+    - 시장 전망
+    - 거래 팁
+    - 시세 추이 차트
+    """)
 
 # -------------------------
-# 사용자 입력 UI
+# 메인 콘텐츠
 # -------------------------
-uploaded_file = st.file_uploader("상품 사진을 업로드하세요 (선택)", type=["jpg", "jpeg", "png"])
-item_description = st.text_area("상품 설명을 입력하세요 (브랜드, 상태, 모델명 등)", height=120, 
-                               placeholder="예: 아이폰 14 프로 256GB, 사용 1년, 외관 양호, 배터리 건강 90%")
-item_type = st.selectbox("상품 카테고리", ["전자기기", "의류", "신발", "가방", "가구", "도서", "기타"])
 
-# 분석 시작 버튼
-analyze_button = st.button("🔍 시세 분석 시작", type="primary")
+# 사용자 입력
+col1, col2 = st.columns([2, 1])
 
-if not item_description.strip():
-    st.info("📝 상품 설명을 입력하면 더 정확한 분석이 가능합니다.")
-    st.stop()
+with col1:
+    uploaded_file = st.file_uploader(
+        "📷 상품 사진 업로드 (선택)", 
+        type=["jpg", "jpeg", "png"],
+        help="상품 사진을 업로드하면 더 정확한 분석이 가능합니다"
+    )
 
-# 이미지 표시 및 검증
+with col2:
+    item_type = st.selectbox(
+        "📂 카테고리", 
+        ["전자기기", "의류", "신발", "가방", "가구", "도서", "기타"]
+    )
+
+item_description = st.text_area(
+    "📝 상품 설명", 
+    height=120, 
+    placeholder="예: 아이폰 14 프로 256GB, 사용 1년, 외관 양호, 배터리 건강 90%, 모든 기능 정상 작동"
+)
+
+# 이미지 처리
 pil_image = None
 image_base64 = None
 use_image = False
@@ -239,15 +262,13 @@ if uploaded_file:
         # 이미지 검증
         ok, reason = validate_image(pil_image)
         if not ok:
-            st.warning(f"⚠️ 이미지 검증 문제: {reason}")
-            use_image = False
+            st.warning(f"⚠️ {reason}")
             if st.button("이미지 무시하고 텍스트만 분석하기"):
                 use_image = False
             else:
                 st.stop()
         else:
             use_image = True
-            # 이미지 인코딩
             image_base64 = encode_image_to_base64(uploaded_file)
             if image_base64:
                 st.success("✅ 이미지 분석이 가능합니다!")
@@ -257,16 +278,19 @@ if uploaded_file:
                 
     except Exception as e:
         st.error(f"이미지 불러오기 오류: {str(e)}")
-        pil_image = None
         use_image = False
 
-# -------------------------
-# AI 시세 분석 실행
-# -------------------------
+# 분석 시작 버튼
+if not item_description.strip():
+    st.info("📝 상품 설명을 입력해주세요. 더 자세한 설명일수록 정확한 분석이 가능합니다.")
+    st.stop()
+
+analyze_button = st.button("🔍 시세 분석 시작", type="primary", use_container_width=True)
+
+# AI 분석 실행
 if analyze_button:
-    with st.spinner("🤖 AI가 시세를 분석 중입니다..."):
+    with st.spinner("🤖 AI가 시세를 분석 중입니다... 잠시만 기다려주세요."):
         try:
-            # 실제 이미지 사용 여부 결정
             final_image_base64 = image_base64 if use_image else None
             
             ai_result = analyze_price_with_ai(
@@ -275,39 +299,53 @@ if analyze_button:
                 final_image_base64
             )
             
+            # 결과 표시
+            st.success("✅ 분석이 완료되었습니다!")
             st.subheader("📊 AI 시세 분석 결과")
             
-            # 결과를 보기 좋게 표시
+            # 결과 파싱 및 표시
             result_lines = ai_result.split('\n')
             for line in result_lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
                 if line.startswith('Estimated Price:'):
                     st.markdown(f"### 💰 {line}")
                 elif line.startswith('Analysis Basis:'):
-                    st.markdown(f"**{line}**")
+                    st.markdown(f"**📈 {line}**")
+                    st.write(line.replace('Analysis Basis:', '').strip())
                 elif line.startswith('Market Outlook:'):
-                    st.markdown(f"**{line}**")
+                    st.markdown(f"**🔮 {line}**")
+                    st.write(line.replace('Market Outlook:', '').strip())
                 elif line.startswith('Trading Tips:'):
-                    st.markdown(f"**{line}**")
-                elif line.strip():
+                    st.markdown(f"**💡 {line}**")
+                    st.write(line.replace('Trading Tips:', '').strip())
+                elif ':' in line and not line.startswith(' '):
+                    # 기타 제목 있는 내용
+                    parts = line.split(':', 1)
+                    st.markdown(f"**{parts[0]}:**")
+                    if len(parts) > 1:
+                        st.write(parts[1].strip())
+                else:
                     st.write(line)
             
-            # 가격 정보 추출하여 차트 생성
+            # 가격 정보 추출
             estimated_price = extract_price_from_analysis(ai_result)
             
             # 시세 추이 차트
-            st.subheader("📈 예상 시세 추이 (시뮬레이션)")
+            st.subheader("📈 예상 시세 추이")
             chart = create_price_chart(item_type, estimated_price)
             if chart:
                 st.pyplot(chart)
                 
-                # 추가 설명
                 if estimated_price:
-                    st.info(f"💡 분석된 예상 가격: {estimated_price:,.0f}원 기준으로 시세 추이를 시뮬레이션했습니다.")
+                    st.info(f"💡 분석된 예상 가격: **{estimated_price:,.0f}원** 기준으로 시세 추이를 시뮬레이션했습니다.")
                 else:
                     st.info("💡 해당 카테고리의 일반적인 시세 추이를 보여드립니다.")
             
             # 분석 방법 안내
-            with st.expander("🔍 분석 방법 안내"):
+            with st.expander("🔍 이 분석은 어떻게 진행되었나요?"):
                 if use_image:
                     st.write("✅ **이미지 + 텍스트 분석**: 상품의 외관, 상태, 모델 등을 이미지로 확인하여 더 정확한 분석을 진행했습니다.")
                 else:
@@ -318,25 +356,26 @@ if analyze_button:
             st.error(f"오류 내용: {str(e)}")
 
 # -------------------------
-# 추가 안내
+# 푸터
 # -------------------------
 st.markdown("---")
-st.markdown("### 💡 사용 팁")
-st.markdown("""
-1. **상품 설명을 자세히**:
-   - 브랜드, 모델명, 구매시기, 사용기간, 외관 상태, 하자 유무 등을 상세히 입력하세요
 
-2. **이미지 활용**:
-   - 실제 상품 사진을 업로드하면 AI가 외관 상태를 분석해 더 정확한 가격을 예측합니다
-   - 명확하고 다양한 각도에서 촬영된 사진이 좋습니다
+col1, col2 = st.columns(2)
 
-3. **카테고리 선택**:
-   - 정확한 카테고리를 선택하면 해당 분야의 시장 동향을 반영한 분석이 가능합니다
-""")
+with col1:
+    st.markdown("### 💡 사용 팁")
+    st.markdown("""
+    - **상품 설명을 자세히** 입력하세요
+    - **실제 사진**을 업로드하면 정확도 ↑
+    - **정확한 카테고리**를 선택하세요
+    """)
 
-st.markdown("### ⚠️ 주의사항")
-st.markdown("""
-- 본 분석은 AI 예측으로 실제 거래 가격과 다를 수 있습니다
-- 중요한 거래는 여러 중고거래 플랫폼의 실제 시세를 참고하세요
-- 분석 결과는 참고용으로만 활용해주세요
-""")
+with col2:
+    st.markdown("### ⚠️ 주의사항")
+    st.markdown("""
+    - AI 예측으로 실제 가격과 다를 수 있습니다
+    - 중요한 거래는 여러 자료를 참고하세요
+    - 참고용으로만 활용해주세요
+    """)
+
+st.caption("© 2024 AI 시세 분석기 - 모든 권리 보유")

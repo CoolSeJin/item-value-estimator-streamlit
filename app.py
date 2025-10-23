@@ -13,12 +13,14 @@ import streamlit as st
 from openai import OpenAI
 
 # -------------------------
-# ✅ UTF-8 환경 설정
+# 페이지 설정
 # -------------------------
-os.environ["PYTHONIOENCODING"] = "utf-8"
-sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8', errors='replace')
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+st.set_page_config(
+    page_title="AI 시세 분석기", 
+    page_icon="💰", 
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
 
 # -------------------------
 # 한글 폰트 설정
@@ -44,16 +46,6 @@ try:
 except Exception:
     st.error("⚠️ API 키 설정 중 오류가 발생했습니다. Secrets에 OPENAI_API_KEY가 등록되어 있는지 확인하세요.")
     st.stop()
-
-# -------------------------
-# 페이지 설정
-# -------------------------
-st.set_page_config(
-    page_title="AI 시세 분석기", 
-    page_icon="💰", 
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
 
 st.title("💰 AI 기반 아이템 시세 분석기")
 st.caption("사진과 설명을 업로드하면 AI가 자동으로 시세를 예측합니다.")
